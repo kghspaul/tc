@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topic Collider</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* BASE ANIMATIONS */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        
+        .prism-card-inner { transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .prism-flipped { transform: rotateY(180deg); }
+
+        .cursor-blink { animation: blink 1s step-end infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        .drag-active { transform: scale(0.98); opacity: 0.8; }
+        
+        /* Game Show Background Pattern */
+        .bg-pattern-dots {
+            background-image: radial-gradient(rgba(0,0,0,0.1) 20%, transparent 20%);
+            background-position: 0 0, 15px 15px;
+            background-size: 30px 30px;
+        }
+        
+        /* Cyberpunk Grid */
+        .bg-grid-neon {
+            background-image: 
+                linear-gradient(rgba(74, 222, 128, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(74, 222, 128, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Utility */
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body id="app-body" class="bg-slate-950 min-h-screen flex flex-col items-center justify-center transition-colors duration-500 overflow-hidden font-sans">
+
+    <!-- NAV BAR -->
+    <!-- FIX: z-[100] ensures this layer is ALWAYS above the content/cards -->
+    <nav class="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-[100]">
+        <h1 id="app-title" class="text-2xl font-bold text-slate-100 flex items-center gap-2 select-none">
+            <i data-lucide="layers" class="w-6 h-6"></i>
+            <span class="hidden md:inline">Topic Collider 話題對撞機</span>
+        </h1>
+        
+        <div class="flex items-center gap-4">
+            <!-- Home -->
+            <button id="btn-home" class="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-all cursor-pointer relative z-50" aria-label="Go Home">
+                <i data-lucide="home" class="w-5 h-5"></i>
+            </button>
+            
+            <!-- Reset (Hard-wired) -->
+            <!-- FIX: Added relative z-50 cursor-pointer explicitly -->
+            <button onclick="window.hardReset()" class="p-3 rounded-full bg-white/10 hover:bg-red-600 hover:text-white transition-all cursor-pointer relative z-50 group" aria-label="Reset Session" title="Reset Data">
+                <i data-lucide="trash-2" class="w-5 h-5 group-hover:scale-110 transition-transform"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="w-full max-w-5xl px-4 relative z-10 flex flex-col h-full justify-center">
+
+        <!-- VIEW: SETUP -->
+        <div id="view-setup" class="w-full transition-all duration-500 animate-fade-in">
+            <div id="setup-card" class="w-full max-w-3xl mx-auto p-8 rounded-3xl bg-slate-900/50 border border-slate-700 backdrop-blur-xl shadow-2xl">
+                <div class="grid md:grid-cols-2 gap-8">
+                    
+                    <!-- Config -->
+                    <div class="space-y-6">
+                        <div>
+                            <!-- REMOVED UPPERCASE -->
+                            <h3 class="text-sm font-bold text-slate-400 mb-3 border-b border-slate-700 pb-2">Visual Theme</h3>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="setTheme('zen')" class="theme-btn py-2 px-4 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-600 transition-all text-sm font-medium">Zen</button>
+                                <button onclick="setTheme('cyber')" class="theme-btn py-2 px-4 rounded-lg bg-black text-green-400 hover:bg-gray-900 border border-green-500 transition-all text-sm font-mono font-bold">Cyber</button>
+                                <button onclick="setTheme('game')" class="theme-btn py-2 px-4 rounded-lg bg-yellow-400 text-black hover:bg-yellow-300 border-2 border-black transition-all text-sm font-bold">Game</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-400 mb-3 border-b border-slate-700 pb-2">Animation</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="setAnim('prism')" id="btn-anim-prism" class="py-2 px-4 rounded-lg bg-slate-800 text-slate-200 border border-slate-600 text-sm font-medium">Prism Flip</button>
+                                <button onclick="setAnim('mind')" id="btn-anim-mind" class="py-2 px-4 rounded-lg bg-slate-800 text-slate-200 border border-slate-600 text-sm font-medium">Mind Flow</button>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button onclick="downloadTemplate()" class="text-xs font-mono text-slate-400 underline hover:text-white flex items-center gap-2">
+                                <i data-lucide="download" class="w-3 h-3"></i> Download CSV Template
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Import -->
+                    <div class="flex flex-col h-full">
+                        <h3 class="text-sm font-bold text-slate-400 mb-3 border-b border-slate-700 pb-2">Data Source</h3>
+                        <div id="drop-zone" class="flex-grow border-2 border-dashed border-slate-600 rounded-xl flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-slate-800 hover:border-slate-400 transition-all group">
+                            <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-500 group-hover:text-white mb-2 transition-colors"></i>
+                            <p class="text-slate-300 font-medium">Drop CSV Here</p>
+                        </div>
+                        <input type="file" id="file-input" class="hidden" accept=".csv,.txt">
+                        <div id="file-status" class="h-6 mt-2 text-xs text-center font-mono"></div>
+                        
+                        <button id="btn-start" class="w-full mt-4 py-4 rounded-xl bg-slate-100 text-slate-900 font-bold shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Enter Stage
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW: GAME -->
+        <div id="view-game" class="hidden w-full flex-col items-center justify-center pb-12">
+            
+            <!-- Priority Badge -->
+            <div class="relative z-20 mb-6">
+                <span id="priority-badge" class="px-6 py-2 rounded-full bg-slate-800 text-slate-200 border border-slate-600 font-mono text-xs font-bold shadow-lg">
+                    Phase <span id="current-priority-val">1</span>
+                </span>
+            </div>
+
+            <!-- CARD CONTAINER (THE STAGE) -->
+            <div id="stage-wrapper" class="w-full max-w-4xl h-80 md:h-96 relative perspective-1000 z-10">
+                <!-- Injected by JS -->
+            </div>
+
+            <!-- CONTROLS -->
+            <div class="mt-12 flex flex-col items-center gap-4 z-20">
+                <div id="stats-badge" class="font-mono text-xs text-slate-500 font-medium">
+                    Questions Remaining: <span id="count-remaining">0</span>
+                </div>
+                
+                <button id="btn-draw" class="px-12 py-6 rounded-2xl bg-slate-100 text-slate-900 text-2xl font-bold shadow-[0_20px_50px_-12px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all">
+                    Draw Question
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        /* =========================================
+           1. THEME DEFINITIONS (HARD SWAP)
+           ========================================= */
+        // FIX: Removed 'uppercase' classes from all definitions
+        const THEMES = {
+            zen: {
+                body: "bg-slate-950 flex flex-col items-center justify-center min-h-screen transition-colors duration-500 font-sans",
+                navTitle: "text-slate-100 font-semibold",
+                setupCard: "w-full max-w-3xl mx-auto p-8 rounded-3xl bg-slate-900/60 border border-slate-700 backdrop-blur-xl shadow-2xl",
+                cardContainer: "w-full h-full rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl flex items-center justify-center p-8 text-center",
+                cardText: "text-3xl md:text-5xl font-medium text-slate-100 leading-tight drop-shadow-lg",
+                drawBtn: "px-10 py-5 rounded-2xl bg-white text-slate-900 text-xl font-bold shadow-2xl hover:scale-105 active:scale-95 transition-all border-none",
+                priorityBadge: "px-4 py-1 rounded-full bg-slate-800/80 text-slate-200 border border-slate-600 text-sm font-medium",
+                statsText: "text-sm text-slate-400 font-medium"
+            },
+            cyber: {
+                // FIX: Enforced bg-black and text-green-400
+                body: "bg-black flex flex-col items-center justify-center min-h-screen bg-grid-neon font-mono transition-colors duration-0",
+                navTitle: "text-green-400 font-bold tracking-tight",
+                setupCard: "w-full max-w-3xl mx-auto p-8 bg-black border-2 border-green-500 shadow-[0_0_20px_rgba(74,222,128,0.2)] rounded-none",
+                cardContainer: "w-full h-full bg-black border-2 border-green-500 shadow-[0_0_30px_rgba(74,222,128,0.2)] flex items-center justify-center p-8 text-center rounded-none relative overflow-hidden",
+                cardText: "text-3xl md:text-5xl font-bold text-green-400 leading-relaxed",
+                drawBtn: "px-10 py-5 bg-black text-green-400 border-2 border-green-400 text-xl font-bold hover:bg-green-400 hover:text-black transition-all shadow-[0_0_15px_rgba(74,222,128,0.5)] rounded-none",
+                priorityBadge: "px-4 py-1 bg-black text-green-400 border border-green-400 text-sm font-bold rounded-none",
+                statsText: "text-sm text-green-600 font-bold"
+            },
+            game: {
+                body: "bg-yellow-400 flex flex-col items-center justify-center min-h-screen bg-pattern-dots font-sans transition-colors duration-500",
+                navTitle: "text-black font-extrabold italic drop-shadow-sm",
+                setupCard: "w-full max-w-3xl mx-auto p-8 bg-white border-4 border-black shadow-[10px_10px_0px_rgba(0,0,0,1)] rounded-2xl",
+                cardContainer: "w-full h-full bg-white border-4 border-black shadow-[15px_15px_0px_rgba(0,0,0,1)] flex items-center justify-center p-8 text-center rounded-2xl",
+                cardText: "text-4xl md:text-6xl font-black text-black leading-none transform -rotate-1",
+                drawBtn: "px-10 py-5 bg-blue-600 text-white border-4 border-black text-2xl font-black shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:translate-y-1 hover:shadow-none transition-all rounded-lg transform rotate-1",
+                priorityBadge: "px-4 py-1 bg-white text-black border-2 border-black font-bold text-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] transform -rotate-2 rounded-lg",
+                statsText: "font-bold text-sm text-black bg-white px-2 py-1 border-2 border-black rounded"
+            }
+        };
+
+        /* =========================================
+           2. STATE & AUDIO ENGINE
+           ========================================= */
+        const STORAGE_KEY = 'sensory_roulette_v5';
+        
+        let state = {
+            theme: 'zen',
+            anim: 'prism',
+            view: 'setup',
+            data: { queue: {}, total: 0 }
+        };
+
+        class SoundEngine {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playTone(freq, type, dur, start=0, vol=0.1) {
+                if(!this.ctx) return;
+                const t = this.ctx.currentTime + start;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, t);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(vol, t + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(t); osc.stop(t + dur + 0.1);
+            }
+            click() {
+                this.init();
+                if (state.theme === 'cyber') {
+                    this.playTone(1200, 'square', 0.05, 0, 0.05);
+                } else if (state.theme === 'game') {
+                    this.playTone(800, 'triangle', 0.1, 0, 0.1);
+                } else {
+                    this.playTone(600, 'sine', 0.1, 0, 0.1);
+                }
+            }
+            reveal() {
+                this.init();
+                const now = this.ctx ? this.ctx.currentTime : 0;
+                if(state.theme === 'cyber') {
+                    // Power Up
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.1, now + 0.1);
+                    gain.gain.linearRampToValueAtTime(0, now + 0.4);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(now); osc.stop(now + 0.4);
+                } else if (state.theme === 'game') {
+                    // Chord
+                    this.playTone(523, 'triangle', 0.5, 0, 0.1);
+                    this.playTone(659, 'triangle', 0.5, 0.1, 0.1);
+                    this.playTone(783, 'triangle', 0.5, 0.2, 0.1);
+                } else {
+                    // Zen
+                    this.playTone(440, 'sine', 2.0, 0, 0.1);
+                    this.playTone(880, 'sine', 2.0, 0.1, 0.05);
+                }
+            }
+        }
+        const audio = new SoundEngine();
+
+        /* =========================================
+           3. CORE DOM & LOGIC
+           ========================================= */
+        const el = (id) => document.getElementById(id);
+        
+        function init() {
+            lucide.createIcons();
+            
+            // Buttons
+            el('btn-home').addEventListener('click', () => { setView('setup'); audio.click(); });
+            el('btn-start').addEventListener('click', () => { setView('game'); audio.click(); });
+            el('btn-draw').addEventListener('click', drawQuestion);
+            
+            // Drag Drop
+            const dz = el('drop-zone');
+            const inp = el('file-input');
+            dz.onclick = () => inp.click();
+            inp.onchange = (e) => loadFile(e.target.files[0]);
+            dz.ondragover = (e) => { e.preventDefault(); dz.classList.add('drag-active'); };
+            dz.ondragleave = () => dz.classList.remove('drag-active');
+            dz.ondrop = (e) => { e.preventDefault(); dz.classList.remove('drag-active'); loadFile(e.dataTransfer.files[0]); };
+
+            // Load
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if(saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state = parsed;
+                    el('file-status').innerText = `Restored ${state.data.total} questions.`;
+                    el('file-status').className = "text-green-500 font-bold h-6 mt-2 text-xs text-center font-mono";
+                    el('btn-start').disabled = false;
+                } catch(e) { localStorage.removeItem(STORAGE_KEY); }
+            }
+            
+            applyTheme(state.theme);
+            setView(state.view);
+            updateStats();
+        }
+
+        // --- HARD-WIRED RESET ---
+        // FIX: Ensuring this function is global and accessible
+        window.hardReset = function() {
+            if(confirm("⚠️ RESET DATA?\nThis will clear all questions and history.")) {
+                localStorage.clear();
+                window.location.reload();
+            }
+        };
+
+        // --- THEME ENGINE ---
+        function setTheme(name) {
+            state.theme = name;
+            applyTheme(name);
+            saveState();
+            audio.click();
+        }
+
+        function setAnim(name) {
+            state.anim = name;
+            saveState();
+            audio.click();
+            // Update button styles manually for feedback
+            el('btn-anim-prism').className = name === 'prism' ? "py-2 px-4 rounded-lg bg-white text-black font-bold text-sm" : "py-2 px-4 rounded-lg bg-slate-800 text-slate-200 border border-slate-600 text-sm";
+            el('btn-anim-mind').className = name === 'mind' ? "py-2 px-4 rounded-lg bg-white text-black font-bold text-sm" : "py-2 px-4 rounded-lg bg-slate-800 text-slate-200 border border-slate-600 text-sm";
+        }
+
+        function applyTheme(name) {
+            const t = THEMES[name];
+            if(!t) return;
+            
+            el('app-body').className = t.body;
+            el('app-title').className = "text-2xl font-bold flex items-center gap-2 " + t.navTitle;
+            el('setup-card').className = t.setupCard;
+            el('priority-badge').className = t.priorityBadge;
+            el('stats-badge').className = t.statsText;
+            el('btn-draw').className = t.drawBtn;
+
+            // Update Stage if exists
+            renderStage();
+        }
+
+        function setView(viewName) {
+            state.view = viewName;
+            if(viewName === 'game') {
+                el('view-setup').classList.add('hidden');
+                el('view-game').classList.remove('hidden');
+                el('view-game').classList.add('flex');
+                renderStage();
+            } else {
+                el('view-game').classList.add('hidden');
+                el('view-game').classList.remove('flex');
+                el('view-setup').classList.remove('hidden');
+            }
+            saveState();
+        }
+
+        // --- STAGE RENDERER ---
+        function renderStage(text = null) {
+            const t = THEMES[state.theme];
+            const container = el('stage-wrapper');
+            const displayText = text || (state.currentQuestion || "?");
+            
+            if(state.anim === 'prism') {
+                container.innerHTML = `
+                    <div id="prism-inner" class="prism-card-inner w-full h-full relative transform-style-3d cursor-pointer">
+                        <!-- FRONT -->
+                        <div class="absolute inset-0 backface-hidden ${t.cardContainer}">
+                            <div class="opacity-30 text-6xl select-none font-bold">?</div>
+                        </div>
+                        <!-- BACK -->
+                        <div class="absolute inset-0 backface-hidden rotate-y-180 ${t.cardContainer}">
+                            <h2 id="q-text" class="${t.cardText}">${displayText}</h2>
+                        </div>
+                    </div>
+                `;
+                // If we already have a question revealed, keep it flipped
+                if(state.currentQuestion) {
+                     setTimeout(() => el('prism-inner').classList.add('prism-flipped'), 50);
+                }
+            } else {
+                // Mind Flow
+                container.innerHTML = `
+                    <div class="${t.cardContainer}">
+                        <h2 id="q-text" class="${t.cardText}">
+                            <span id="type-target">${displayText === "?" ? "" : displayText}</span><span class="cursor-blink opacity-50">|</span>
+                        </h2>
+                    </div>
+                `;
+            }
+        }
+
+        // --- GAMEPLAY ---
+        function loadFile(file) {
+            if(!file) return;
+            const r = new FileReader();
+            r.onload = (e) => {
+                const lines = e.target.result.split(/\r?\n/).filter(x => x.trim());
+                const q = {};
+                lines.forEach(l => {
+                    const p = l.split(',');
+                    const prio = (p.length > 1 && !isNaN(parseInt(p[0]))) ? parseInt(p[0]) : 99;
+                    const txt = (p.length > 1 && !isNaN(parseInt(p[0]))) ? p.slice(1).join(',').trim() : l;
+                    if(!q[prio]) q[prio] = [];
+                    q[prio].push(txt);
+                });
+                
+                let total = 0;
+                Object.values(q).forEach(arr => total += arr.length);
+                
+                if(total > 0) {
+                    state.data = { queue: q, total: total };
+                    el('file-status').innerText = `Loaded ${total} questions.`;
+                    el('file-status').className = "text-green-500 font-bold h-6 mt-2 text-xs text-center font-mono";
+                    el('btn-start').disabled = false;
+                    saveState();
+                    audio.reveal();
+                }
+            };
+            r.readAsText(file);
+        }
+
+        function drawQuestion() {
+            audio.init();
+            const priorities = Object.keys(state.data.queue).map(Number).sort((a,b)=>a-b);
+            if(priorities.length === 0) {
+                renderStage("Session Complete");
+                if(state.anim === 'prism') setTimeout(()=>el('prism-inner').classList.add('prism-flipped'), 50);
+                return;
+            }
+            
+            const p = priorities[0];
+            const list = state.data.queue[p];
+            const idx = Math.floor(Math.random() * list.length);
+            const text = list[idx];
+            
+            // Remove
+            list.splice(idx, 1);
+            if(list.length === 0) delete state.data.queue[p];
+            state.data.total--;
+            state.currentQuestion = text; 
+            saveState();
+            updateStats();
+
+            // Animate
+            if(state.anim === 'prism') {
+                const card = el('prism-inner');
+                // Reset if flipped
+                if(card.classList.contains('prism-flipped')) {
+                    card.style.transition = 'none';
+                    card.classList.remove('prism-flipped');
+                    void card.offsetWidth; // Force reflow
+                    card.style.transition = '';
+                }
+                // Update text
+                setTimeout(() => {
+                    el('q-text').innerText = text;
+                    card.classList.add('prism-flipped');
+                    audio.reveal();
+                }, 100);
+            } else {
+                // Typewriter
+                const target = el('type-target');
+                target.innerText = "";
+                let i = 0;
+                clearInterval(window.typeTimer);
+                window.typeTimer = setInterval(() => {
+                    if(i < text.length) {
+                        target.innerText += text.charAt(i);
+                        i++;
+                    } else {
+                        clearInterval(window.typeTimer);
+                        audio.reveal();
+                    }
+                }, 30);
+            }
+        }
+
+        function updateStats() {
+            el('count-remaining').innerText = state.data.total;
+            const p = Object.keys(state.data.queue).map(Number).sort((a,b)=>a-b);
+            el('current-priority-val').innerText = p.length ? p[0] : "-";
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function downloadTemplate() {
+            const c = "data:text/csv;charset=utf-8,1,What is your name?\n2,What is your quest?\n3,What is the capital of Assyria?";
+            const l = document.createElement("a");
+            l.href = encodeURI(c);
+            l.download = "template.csv";
+            document.body.appendChild(l); l.click(); document.body.removeChild(l);
+        }
+
+        // Run
+        init();
+
+    </script>
+</body>
+</html>
